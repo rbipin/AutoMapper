@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace AutoMapper
@@ -10,18 +11,64 @@ namespace AutoMapper
     internal class TrieNodeProperty
     {
         //Parent Property
-        private TrieNodeProperty ParentProperty { get; set; }
+        private TrieNodeProperty Parent { get; set; }
 
         //Current Property Info
         public PropertyInfo Property { get; private set; }
 
-        public object PropertyInstance { get; set; }
+        /// <summary>
+        /// Current Properties instance
+        /// </summary>
+        public object Instance { get; set; }
+
+        public bool PreserveExisting { get; set; }
+
+        /// <summary>
+        /// Children of the property
+        /// </summary>
+        public List<TrieNodeProperty> Children { get; private set; }
 
         public TrieNodeProperty(TrieNodeProperty parentProperty,
                 PropertyInfo currentProperty)
         {
-            ParentProperty = parentProperty;
+            Parent = parentProperty;
             Property = currentProperty;
+            if (parentProperty != null)
+                parentProperty.AddChildren(this);
+        }
+
+        public TrieNodeProperty(TrieNodeProperty parentProperty,
+                PropertyInfo currentProperty, object instance)
+        {
+            Parent = parentProperty;
+            Property = currentProperty;
+            if (parentProperty != null)
+                parentProperty.AddChildren(this);
+            Instance = instance;
+        }
+
+        public TrieNodeProperty GetTopMostRoot()
+        {
+            TrieNodeProperty topMostNode = this;
+            while(!topMostNode.IsTopMostRoot())
+            {
+                topMostNode = topMostNode.Parent;
+            }
+            return topMostNode;
+        }
+
+        public bool HasChildren()
+        {
+            if (Children == null || Children.Count == 0)
+                return false;
+            return true;
+        }
+
+        public void AddChildren(TrieNodeProperty child)
+        {
+            if (Children == null)
+                Children = new List<TrieNodeProperty>();
+            Children.Add(child);
         }
 
         /// <summary>
@@ -30,16 +77,16 @@ namespace AutoMapper
         /// <returns></returns>
         public TrieNodeProperty GetParent()
         {
-            return this.ParentProperty;
+            return this.Parent;
         }
 
         /// <summary>
         /// Return if this is top most root
         /// </summary>
         /// <returns></returns>
-        public bool IsTopRoot()
+        public bool IsTopMostRoot()
         {
-            if (ParentProperty == null && Property == null)
+            if (Parent == null)
                 return true;
             return false;
         }
@@ -50,7 +97,7 @@ namespace AutoMapper
         /// <returns></returns>
         public bool HasParent()
         {
-            if (ParentProperty == null)
+            if (Parent == null)
                 return false;
             return true;
         }
