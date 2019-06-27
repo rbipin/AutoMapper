@@ -25,15 +25,61 @@ namespace AutoMapper
             if (source == null)
                 throw new NullArgumentException("The source object (object from which the mapping has to happen) is null",
                     $"{GetCurrentMethodName()}");
-            
+
             //Get the source and target object type
             var destinationType = destination.GetType();
             var sourceType = source.GetType();
+
+            if (object.Equals(destinationType, sourceType))
+            {
+                destination = source;
+                return;
+            }
 
             //If the destinaton type and source type are same and
             //destination is a list or array, then just assign source
             //Locate the correct property and instance on which the mapping has to happen
             TrieNodeProperty destinationNode = LocateSourcePropertyTypeInDestination(destination, source);
+
+            if (sourceType.IsGenericType || sourceType.IsArray)
+            {
+                var existingValue = destinationNode.Property.GetValue(destination);
+                AssignSourceToDestination(destination, existingValue, source, destinationNode.Property);
+                return;
+            }
+
+            //Property Trie - Make the top most root, doesn't have a value or a parent
+            TrieNodeProperty sourcePropertyNode = LoadSourceObjectDictionary(source);
+
+            //Start mapping, auto memory initializationa and value assigning
+            StartAutoMappingProcess(destinationNode, sourcePropertyNode, preserveExistingValue);
+        }
+
+        public static void Map(this object destination, object source, 
+            string propertyName,
+            bool preserveExistingValue = false)
+        {
+            if (destination == null)
+                throw new NullArgumentException("The desination object (object to which the mapping has to happen) is null",
+                    $"{GetCurrentMethodName()}");
+            if (source == null)
+                throw new NullArgumentException("The source object (object from which the mapping has to happen) is null",
+                    $"{GetCurrentMethodName()}");
+
+            //Get the source and target object type
+            var destinationType = destination.GetType();
+            var sourceType = source.GetType();
+
+            if (object.Equals(destinationType, sourceType))
+            {
+                destination = source;
+                return;
+            }
+
+            //If the destinaton type and source type are same and
+            //destination is a list or array, then just assign source
+            //Locate the correct property and instance on which the mapping has to happen
+            TrieNodeProperty destinationNode = LocateSourcePropertyTypeInDestination(destination, source, propertyName);
 
             if (sourceType.IsGenericType || sourceType.IsArray)
             {
@@ -74,7 +120,7 @@ namespace AutoMapper
         /// <param name="sourcePropertyNode">Source Trie Node</param>
         private static void MapSourceToDestination(TrieNodeProperty targetTrieNode, TrieNodeProperty sourcePropertyNode)
         {
-           //If the target Instance is null, that mean the property is null
+            //If the target Instance is null, that mean the property is null
             if (targetTrieNode.Instance == null)
             {
                 //get the parent instance and assign the source directly to that.
@@ -122,12 +168,12 @@ namespace AutoMapper
         /// <param name="destinationInstance"></param>
         /// <param name="sourceIntance"></param>
         /// <param name="destinationProperty"></param>
-        private static void AssignSourceToDestination(object target, 
-                                                      object targetData, 
-                                                      object sourceIntance, 
+        private static void AssignSourceToDestination(object target,
+                                                      object targetData,
+                                                      object sourceIntance,
                                                       PropertyInfo destinationProperty)
         {
-            
+
             if (destinationProperty.PropertyType.IsGenericType) //Property is a list
                 sourceIntance = CopyOverList(targetData, sourceIntance);
             else if (destinationProperty.PropertyType.IsArray) //Property is an array
@@ -177,7 +223,13 @@ namespace AutoMapper
             //Map the Sub properties
             if (IsClass(property))
             {
-                var subProperties = property.PropertyType.GetProperties(BindingFlags.Public | BindingFlags.Instance).ToList();
+                var subProperties = property.PropertyType
+                    .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(x => x.GetMethod != null
+                        && !x.GetMethod.IsPrivate
+                        && x.SetMethod != null
+                        && !x.SetMethod.IsPrivate)
+                    .ToList();
                 subProperties.ForEach(subproperty =>
                 {
                     propertyName = $"{parentPropertyName}.{subproperty.Name}";
@@ -203,8 +255,8 @@ namespace AutoMapper
                 //Get all the properties that are public
                 var subProperties = property.PropertyType
                     .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                    .Where(x => !x.GetMethod.IsPrivate
-                        && !x.SetMethod.IsPrivate)
+                    .Where(x => x.GetMethod != null && !x.GetMethod.IsPrivate
+                        && x.SetMethod != null && !x.SetMethod.IsPrivate)
                     .ToList();
 
                 //Get the could of properties that are public
@@ -281,15 +333,13 @@ namespace AutoMapper
             Dictionary<Type, Dictionary<string, TrieNodeProperty>> destinationPropertyIndex =
                 new Dictionary<Type, Dictionary<string, TrieNodeProperty>>();
             destinationPropertyIndex = LoadDestinationPropertyMap(target);
-            TrieNodeProperty correctProperty = null;
 
             var sourceType = sourceNode.GetType();
             var destinationPropertyCollection = destinationPropertyIndex[sourceType];
             if (destinationPropertyCollection.Count == 1)
             {
                 var propertyNode = destinationPropertyCollection.Values.First();
-                correctProperty = new TrieNodeProperty(null, propertyNode.Property, propertyNode.Instance);
-                return correctProperty;
+                return propertyNode;
             }
             else if (destinationPropertyCollection.Count > 1)
             {
@@ -320,7 +370,12 @@ namespace AutoMapper
 
             TrieNodeProperty rootNode = new TrieNodeProperty(null, null, destination);
             var publicProperties = destination.GetType()
-                  .GetProperties(BindingFlags.Public | BindingFlags.Instance).ToList();
+                  .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                  .Where(x => x.GetMethod != null
+                        && !x.GetMethod.IsPrivate
+                        && x.SetMethod != null
+                        && !x.SetMethod.IsPrivate)
+                  .ToList();
             publicProperties.ForEach(property =>
             {
                 GetProperties(property,
@@ -345,14 +400,14 @@ namespace AutoMapper
 
             var publicProperties = source.GetType()
                   .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-                  .Where(x => !x.GetMethod.IsPrivate
-                        && !x.SetMethod.IsPrivate)
-                        .ToList();
+                  .Where(x => x.GetMethod != null && !x.GetMethod.IsPrivate
+                        && x.SetMethod != null && !x.SetMethod.IsPrivate)
+                  .ToList();
+
 
             var publicPropertiesCount = publicProperties.Count;
 
-            publicProperties = source.GetType()
-                  .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            publicProperties = publicProperties
                   .Where(x => x.GetValue(source) != null)
                         .ToList();
 
@@ -434,5 +489,5 @@ namespace AutoMapper
             return cloneData;
         }
 
-  }
+    }
 }
