@@ -35,6 +35,7 @@ namespace AutoMapper
             Property = currentProperty;
             if (parentProperty != null)
                 parentProperty.AddChildren(this);
+            PreserveExisting = false;
         }
 
         public TrieNodeProperty(TrieNodeProperty parentProperty,
@@ -45,6 +46,7 @@ namespace AutoMapper
             if (parentProperty != null)
                 parentProperty.AddChildren(this);
             Instance = instance;
+            PreserveExisting = false;
         }
 
         public TrieNodeProperty GetTopMostRoot()

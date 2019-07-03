@@ -55,7 +55,7 @@ namespace AutoMapper
             StartAutoMappingProcess(destinationNode, sourcePropertyNode, preserveExistingValue);
         }
 
-        public static void Map(this object destination, object source, 
+        public static void Map(this object destination, object source,
             string propertyName,
             bool preserveExistingValue = false)
         {
@@ -120,6 +120,13 @@ namespace AutoMapper
         /// <param name="sourcePropertyNode">Source Trie Node</param>
         private static void MapSourceToDestination(TrieNodeProperty targetTrieNode, TrieNodeProperty sourcePropertyNode)
         {
+            if (IsClass(targetTrieNode.Property) && 
+                targetTrieNode.Instance!=null && 
+                !sourcePropertyNode.HasChildren())
+            {
+                return;
+            }
+           
             //If the target Instance is null, that mean the property is null
             if (targetTrieNode.Instance == null)
             {
@@ -142,7 +149,7 @@ namespace AutoMapper
                         AssignSourceToDestination(targetTrieNode.Instance, targetTrieNode.Instance, childProperty.Instance, targetChildProperty);
                         return;
                     }
-                    var targetNode = new TrieNodeProperty(null, targetChildProperty, targetPropertyInstance);
+                    var targetNode = new TrieNodeProperty(targetTrieNode, targetChildProperty, targetPropertyInstance);
                     MapSourceToDestination(targetNode,
                                             childProperty);
                 });
@@ -152,10 +159,9 @@ namespace AutoMapper
             {
                 //Else - this means the property has no more child properties or you have reached the last property.
                 //Map directly
-                var sourceProperty = sourcePropertyNode.Property;
 
-                var targetChildProperty = targetTrieNode.Instance.GetType().GetProperty(sourceProperty.PropertyType.Name);
-                var targetPropertyInstance = targetChildProperty.GetValue(targetTrieNode.Instance);
+                var targetChildProperty = targetTrieNode.Property;
+                var targetPropertyInstance = targetTrieNode.GetParent().Instance;
 
                 AssignSourceToDestination(targetPropertyInstance, targetPropertyInstance, sourcePropertyNode.Instance, targetChildProperty);
 
@@ -175,9 +181,19 @@ namespace AutoMapper
         {
 
             if (destinationProperty.PropertyType.IsGenericType) //Property is a list
+            {
+                var sourceList = sourceIntance as IList;
+                if (sourceList.Count <= 0)
+                    return;
                 sourceIntance = CopyOverList(targetData, sourceIntance);
+            }
             else if (destinationProperty.PropertyType.IsArray) //Property is an array
+            {
+                var sourceArray = sourceIntance as Array;
+                if (sourceArray.Length <= 0)
+                    return;
                 sourceIntance = CopyOverArray(targetData, sourceIntance);
+            }
             //Set the value
             destinationProperty.SetValue(target, sourceIntance);
         }
@@ -278,7 +294,7 @@ namespace AutoMapper
                 var filteredPublicPropertiesCount = subProperties.Count;
 
                 //if the count does not match, then preserve existings
-                if (publicPropertiesCount != filteredPublicPropertiesCount)
+                if (filteredPublicPropertiesCount > 0 && publicPropertiesCount != filteredPublicPropertiesCount)
                     propertyMap.PreserveExisting = true;
 
                 //Iterate the sub properties
@@ -334,6 +350,7 @@ namespace AutoMapper
                 new Dictionary<Type, Dictionary<string, TrieNodeProperty>>();
             destinationPropertyIndex = LoadDestinationPropertyMap(target);
 
+            propertyName = propertyName.ToUpper();
             var sourceType = sourceNode.GetType();
             var destinationPropertyCollection = destinationPropertyIndex[sourceType];
             if (destinationPropertyCollection.Count == 1)
@@ -411,7 +428,7 @@ namespace AutoMapper
                   .Where(x => x.GetValue(source) != null)
                         .ToList();
 
-            //Filter out value types with default value
+            //Filter out value types with default values
             publicProperties.ToList().ForEach(prop =>
             {
                 if (prop.PropertyType.IsValueType && object.Equals(prop.GetValue(source), Activator.CreateInstance(prop.PropertyType)))
@@ -420,7 +437,8 @@ namespace AutoMapper
 
             var filteredPublicPropertiesCount = publicProperties.Count;
 
-            if (publicPropertiesCount != filteredPublicPropertiesCount)
+
+            if (filteredPublicPropertiesCount > 0 && publicPropertiesCount != filteredPublicPropertiesCount)
                 propertyMappedTrie.PreserveExisting = true;
 
             publicProperties.ForEach(property =>
