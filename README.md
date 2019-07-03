@@ -1,6 +1,8 @@
 # AutoMapper
-Mapping a part of object to another complex object becomes a tedious process.
-This is an auto mapper solution that can be used to solve this problem.
+Mapping a part of object to another complex object becomes a tedious process if there are lists, arrays in them.
+This is an object auto mapper, that will help  simply the process. 
+
+This mapper can be used to map a part of an object to the target object.
 
 ### Features
   * Automatically finds the first occurance of a object type and maps them.
