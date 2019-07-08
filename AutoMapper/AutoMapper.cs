@@ -10,6 +10,7 @@ namespace AutoMapper
 {
     public static class AutoMapper
     {
+
         /// <summary>
         /// Map the source type to the destination property, this can go N levels deeper and try to man the source type to the target
         /// In case of objects with multiple properties that are of same type, this method will map to the first property it finds.
@@ -108,9 +109,48 @@ namespace AutoMapper
         {
             //Get the top most node in the tree
             TrieNodeProperty topMostNode = sourcePropertyNodes.GetTopMostRoot();
+
+            AutoInitialize(destinationNode);
+
             //Map the source to the destination
             MapSourceToDestination(destinationNode, topMostNode);
 
+        }
+
+        /// <summary>
+        /// Auto Initialize the parent Instances
+        /// </summary>
+        /// <param name="targetTrieNode"></param>
+        private static void AutoInitialize(TrieNodeProperty targetTrieNode)
+        {
+            Stack<TrieNodeProperty> initializationOrder = new Stack<TrieNodeProperty>();
+            //Create a stack order for intialization
+            while(!targetTrieNode.IsTopMostRoot() && targetTrieNode.HasParent())
+            {
+                targetTrieNode = targetTrieNode.GetParent();
+                var objectInstance = targetTrieNode.Instance;
+                if (objectInstance == null)
+                {
+                    initializationOrder.Push(targetTrieNode);
+                }
+            }
+            //Start creating initializing the objects
+            while(initializationOrder.Count>0)
+            {
+                var node = initializationOrder.Pop();
+                var objectInstance = CreateInstanceOfType(node.Property.PropertyType);
+                node.SetInstance(objectInstance);
+            }
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="targetType"></param>
+        /// <returns></returns>
+        private static object CreateInstanceOfType(Type targetType)
+        {
+            return Activator.CreateInstance(targetType);
         }
 
         /// <summary>
@@ -120,13 +160,13 @@ namespace AutoMapper
         /// <param name="sourcePropertyNode">Source Trie Node</param>
         private static void MapSourceToDestination(TrieNodeProperty targetTrieNode, TrieNodeProperty sourcePropertyNode)
         {
-            if (IsClass(targetTrieNode.Property) && 
-                targetTrieNode.Instance!=null && 
+            if (IsClass(targetTrieNode.Property) &&
+                targetTrieNode.Instance != null &&
                 !sourcePropertyNode.HasChildren())
             {
                 return;
             }
-           
+
             //If the target Instance is null, that mean the property is null
             if (targetTrieNode.Instance == null)
             {
@@ -412,8 +452,7 @@ namespace AutoMapper
         private static TrieNodeProperty LoadSourceObjectDictionary(object source)
         {
 
-            TrieNodeProperty propertyMappedTrie = new TrieNodeProperty(null, null);
-            propertyMappedTrie.Instance = source;
+            TrieNodeProperty propertyMappedTrie = new TrieNodeProperty(null, null,source);
 
             var publicProperties = source.GetType()
                   .GetProperties(BindingFlags.Public | BindingFlags.Instance)

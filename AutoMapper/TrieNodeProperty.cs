@@ -19,7 +19,7 @@ namespace AutoMapper
         /// <summary>
         /// Current Properties instance
         /// </summary>
-        public object Instance { get; set; }
+        public object Instance { get; private set; }
 
         public bool PreserveExisting { get; set; }
 
@@ -27,16 +27,6 @@ namespace AutoMapper
         /// Children of the property
         /// </summary>
         public List<TrieNodeProperty> Children { get; private set; }
-
-        public TrieNodeProperty(TrieNodeProperty parentProperty,
-                PropertyInfo currentProperty)
-        {
-            Parent = parentProperty;
-            Property = currentProperty;
-            if (parentProperty != null)
-                parentProperty.AddChildren(this);
-            PreserveExisting = false;
-        }
 
         public TrieNodeProperty(TrieNodeProperty parentProperty,
                 PropertyInfo currentProperty, object instance)
@@ -102,6 +92,15 @@ namespace AutoMapper
             if (Parent == null)
                 return false;
             return true;
+        }
+
+        /// <summary>
+        /// Set the instance property and also sets the value of the property
+        /// </summary>
+        public void SetInstance(object instance)
+        {
+            this.Instance = instance;
+            this.Property.SetValue(this.Parent.Instance, instance);
         }
 
 
