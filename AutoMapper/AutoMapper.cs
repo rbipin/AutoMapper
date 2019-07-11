@@ -42,10 +42,13 @@ namespace AutoMapper
             //Locate the correct property and instance on which the mapping has to happen
             TrieNodeProperty destinationNode = LocateSourcePropertyTypeInDestination(destination, source);
 
+            AutoInitialize(destinationNode);
+
             if (sourceType.IsGenericType || sourceType.IsArray)
             {
-                var existingValue = destinationNode.Property.GetValue(destination);
-                AssignSourceToDestination(destination, existingValue, source, destinationNode.Property);
+                var existingValue = destinationNode.Property.GetValue(destinationNode.GetParent().Instance);
+                AssignSourceToDestination(destinationNode.GetParent().Instance, 
+                                          existingValue, source, destinationNode.Property);
                 return;
             }
 
@@ -82,10 +85,13 @@ namespace AutoMapper
             //Locate the correct property and instance on which the mapping has to happen
             TrieNodeProperty destinationNode = LocateSourcePropertyTypeInDestination(destination, source, propertyName);
 
+            AutoInitialize(destinationNode);
+
             if (sourceType.IsGenericType || sourceType.IsArray)
             {
-                var existingValue = destinationNode.Property.GetValue(destination);
-                AssignSourceToDestination(destination, existingValue, source, destinationNode.Property);
+                var existingValue = destinationNode.Property.GetValue(destinationNode.GetParent().Instance);
+                AssignSourceToDestination(destinationNode.GetParent().Instance, 
+                                          existingValue, source, destinationNode.Property);
                 return;
             }
 
@@ -109,8 +115,6 @@ namespace AutoMapper
         {
             //Get the top most node in the tree
             TrieNodeProperty topMostNode = sourcePropertyNodes.GetTopMostRoot();
-
-            AutoInitialize(destinationNode);
 
             //Map the source to the destination
             MapSourceToDestination(destinationNode, topMostNode);
