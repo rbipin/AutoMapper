@@ -9,10 +9,8 @@
                                      | |   | |              
                                      |_|   |_|              
 ```
-Mapping a part of object to another complex object becomes a tedious process if there are lists, arrays in them.
-This is an object auto mapper, that will help  simply the process. 
-
-This mapper can be used to map a part of an object to the target object.
+Mapping a part of object to another complex object becomes a tedious process if there are object is very complex or if there are lists and arrays in them.
+This is an object auto mapper, that will help simplify the mapping.
 
 ### Features
   * Automatically finds the first occurance of a object type and maps them.
